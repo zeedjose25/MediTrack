@@ -116,6 +116,36 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  Future<void> _resetPassword() async {
+    final email = emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showMessage(
+        'Enter your email above first, then tap Forgot password.',
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      _showMessage(
+        'If an account exists for $email, a password reset link has been sent. '
+        'Check your inbox and spam folder.',
+        isError: false,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      _showMessage(_errorText(e.code), isError: true);
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Something went wrong. Please try again.', isError: true);
+    }
+  }
+
   // ------------------------------------------------------------
   // MESSAGE
   // ------------------------------------------------------------
@@ -300,6 +330,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
+
+                        // ------------------------------------------
+                        // FORGOT PASSWORD (SIGN IN ONLY)
+                        // ------------------------------------------
+                        if (!isSignUp)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: isLoading ? null : _resetPassword,
+                              child: const Text('Forgot password?'),
+                            ),
+                          ),
 
                         // ------------------------------------------
                         // CONFIRM PASSWORD (SIGN UP ONLY)

@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../data/dose_tracking.dart';
 import '../models/medication.dart';
 
 class MedicationCard extends StatelessWidget {
   final Medication medication;
   final VoidCallback? onTap;
 
-  const MedicationCard({super.key, required this.medication, this.onTap});
+  // Today's dose summary (for example "2/3 doses"). Optional.
+  final MedicationDayStatus? status;
+
+  const MedicationCard({
+    super.key,
+    required this.medication,
+    this.onTap,
+    this.status,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final complete = status?.complete ?? false;
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -78,11 +89,27 @@ class MedicationCard extends StatelessWidget {
                 ),
               ),
 
-              // View-only status
-              Icon(
-                medication.taken ? Icons.check_circle : Icons.schedule,
-                color: medication.taken ? const Color(0xFF2E7D32) : Colors.grey,
-                size: 28,
+              // View-only status for today
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    complete ? Icons.check_circle : Icons.schedule,
+                    color: complete ? const Color(0xFF2E7D32) : Colors.grey,
+                    size: 28,
+                  ),
+                  if (status != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      status!.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: complete ? const Color(0xFF2E7D32) : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),

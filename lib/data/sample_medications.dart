@@ -84,24 +84,30 @@ void _logError(Object error) {
   debugPrint('Firestore error: $error');
 }
 
-// "2026-10-03" - used so "taken" resets every day.
-String _todayKey() {
-  final now = DateTime.now();
-  final month = now.month.toString().padLeft(2, '0');
-  final day = now.day.toString().padLeft(2, '0');
-  return '${now.year}-$month-$day';
-}
-
 Map<String, dynamic> _toMap(Medication medication) {
   return {
     'name': medication.name,
     'dosage': medication.dosage,
     'frequency': medication.frequency,
-    'time': medication.time,
+    'times': medication.times,
     'instructions': medication.instructions,
     'notes': medication.notes,
     'reminderEnabled': medication.reminderEnabled,
   };
+}
+
+// Reads the dose times. Older medicines only have a single "time" text
+// (like "08:00 AM"), so that is converted into a one-item list.
+List<String> _readTimes(Map<String, dynamic> data) {
+  final raw = data['times'];
+
+  if (raw is List) {
+    return raw.map((item) => normalizeTime(item.toString())).toList();
+  }
+
+  final oldTime = data['time'] as String?;
+
+  return [oldTime == null ? '08:00' : normalizeTime(oldTime)];
 }
 
 Medication _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
@@ -112,12 +118,14 @@ Medication _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     name: data['name'] as String? ?? '',
     dosage: data['dosage'] as String? ?? '',
     frequency: data['frequency'] as String? ?? 'Once a day',
-    time: data['time'] as String? ?? '08:00 AM',
+    times: _readTimes(data),
     instructions: data['instructions'] as String? ?? 'As directed',
     notes: data['notes'] as String? ?? '',
     reminderEnabled: data['reminderEnabled'] as bool? ?? true,
-    // Counts as taken only if it was marked taken TODAY.
-    taken: data['takenDate'] == _todayKey(),
+    // Pending (not yet saved) documents have no server time yet.
+    createdAt:
+        (data['createdAt'] as Timestamp?)?.toDate() ??
+        (doc.metadata.hasPendingWrites ? DateTime.now() : null),
   );
 }
 
@@ -141,20 +149,6 @@ void updateMedication(Medication medication) {
 
 void deleteMedication(String medicationId) {
   _collection()?.doc(medicationId).delete().catchError(_logError);
-}
-
-void toggleMedicationTaken(String medicationId) {
-  final matches = medicationNotifier.value.where(
-    (item) => item.id == medicationId,
-  );
-  if (matches.isEmpty) return;
-
-  final markTaken = !matches.first.taken;
-
-  _collection()
-      ?.doc(medicationId)
-      .update({'takenDate': markTaken ? _todayKey() : FieldValue.delete()})
-      .catchError(_logError);
 }
 
 void toggleMedicationReminder(String medicationId) {

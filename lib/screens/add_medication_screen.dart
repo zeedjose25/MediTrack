@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/sample_medications.dart';
 import '../models/medication.dart';
+import '../widgets/dose_times_field.dart';
 
 class AddMedicationScreen extends StatefulWidget {
   const AddMedicationScreen({super.key});
@@ -19,7 +20,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   String frequency = 'Once a day';
   String instructions = 'Take with water';
-  TimeOfDay selectedTime = const TimeOfDay(hour: 8, minute: 0);
+  List<String> times = ['08:00'];
 
   @override
   void dispose() {
@@ -29,21 +30,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     super.dispose();
   }
 
-  Future<void> chooseTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: selectedTime,
-    );
-
-    if (picked != null) {
-      setState(() {
-        selectedTime = picked;
-      });
-    }
-  }
-
-  String formatTime(TimeOfDay time) {
-    return time.format(context);
+  void onFrequencyChanged(String value) {
+    setState(() {
+      frequency = value;
+      times = timesForFrequency(value, times);
+    });
   }
 
   void saveMedication() {
@@ -56,7 +47,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       name: nameController.text.trim(),
       dosage: dosageController.text.trim(),
       frequency: frequency,
-      time: formatTime(selectedTime),
+      times: times,
       instructions: instructions,
       notes: notesController.text.trim(),
     );
@@ -138,23 +129,19 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                   }).toList(),
               onChanged: (value) {
                 if (value != null) {
-                  setState(() {
-                    frequency = value;
-                  });
+                  onFrequencyChanged(value);
                 }
               },
             ),
             const SizedBox(height: 14),
-            InkWell(
-              onTap: chooseTime,
-              borderRadius: BorderRadius.circular(14),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Medication time',
-                  prefixIcon: Icon(Icons.access_time),
-                ),
-                child: Text(formatTime(selectedTime)),
-              ),
+            DoseTimesField(
+              frequency: frequency,
+              times: times,
+              onChanged: (updated) {
+                setState(() {
+                  times = updated;
+                });
+              },
             ),
             const SizedBox(height: 24),
             _sectionTitle('Instructions'),

@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
 import 'data/sample_medications.dart';
+import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
+import 'data/dose_tracking.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  startMedicationSync(); // <-- add this line
-  runApp(const MediTrackApp());
+  startMedicationSync();
+  startDoseSync();
+
+  // Wait for Firebase to restore the saved login (if there is one).
+  final user = await FirebaseAuth.instance.authStateChanges().first;
+
+  runApp(MediTrackApp(isLoggedIn: user != null));
 }
 
 class MediTrackApp extends StatelessWidget {
-  const MediTrackApp({super.key});
+  final bool isLoggedIn;
+
+  const MediTrackApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -59,8 +69,8 @@ class MediTrackApp extends StatelessWidget {
         ),
       ),
 
-      // LOGIN IS NOW THE FIRST SCREEN
-      home: const LoginScreen(),
+      // Signed-in users skip login; everyone else starts at the login screen.
+      home: isLoggedIn ? const SplashScreen() : const LoginScreen(),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/dose_tracking.dart';
 import '../data/sample_medications.dart';
 import '../models/medication.dart';
 
@@ -12,10 +13,11 @@ class MedicationDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<Medication>>(
-      valueListenable: medicationNotifier,
-      builder: (context, medications, _) {
-        final matches = medications.where((item) => item.id == medicationId);
+    return TodayBuilder(
+      builder: (context, today) {
+        final matches = today.medications.where(
+          (item) => item.id == medicationId,
+        );
 
         if (matches.isEmpty) {
           return Scaffold(
@@ -25,6 +27,7 @@ class MedicationDetailsScreen extends StatelessWidget {
         }
 
         final medication = matches.first;
+        final doses = today.dosesFor(medication.id);
 
         return Scaffold(
           appBar: AppBar(
@@ -94,7 +97,15 @@ class MedicationDetailsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              _infoTile(Icons.access_time, 'Medication Time', medication.time),
+              _infoTile(
+                Icons.access_time,
+                medication.times.length > 1
+                    ? 'Medication Times'
+                    : 'Medication Time',
+                medication.times.isEmpty
+                    ? 'As needed'
+                    : medication.times.map(display12).join(', '),
+              ),
               _infoTile(Icons.repeat, 'Frequency', medication.frequency),
               _infoTile(
                 Icons.info_outline,
@@ -107,38 +118,83 @@ class MedicationDetailsScreen extends StatelessWidget {
                 medication.notes.isEmpty ? 'No notes' : medication.notes,
               ),
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: medication.taken
-                      ? const Color(0xFFE8F5E9)
-                      : const Color(0xFFFFF8E1),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      medication.taken ? Icons.check_circle : Icons.schedule,
-                      color: medication.taken
-                          ? const Color(0xFF2E7D32)
-                          : const Color(0xFFF57C00),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        medication.taken
-                            ? 'This medication has been marked as taken.'
-                            : 'This medication has not been taken yet.',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _todayPanel(medication, doses, today),
             ],
           ),
         );
       },
+    );
+  }
+
+  // ------------------------------------------------------------
+  // TODAY'S DOSES for this medicine
+  // ------------------------------------------------------------
+
+  Widget _todayPanel(
+    Medication medication,
+    List<ScheduledDose> doses,
+    TodaySnapshot today,
+  ) {
+    final asNeeded = isAsNeeded(medication.frequency);
+    final loggedCount = today.asNeededLogsFor(medication.id).length;
+    final takenCount = doses.where((dose) => dose.taken).length;
+
+    final String summary;
+
+    if (asNeeded) {
+      summary = loggedCount == 0
+          ? 'No doses logged today.'
+          : '$loggedCount dose${loggedCount == 1 ? '' : 's'} logged today.';
+    } else if (doses.isEmpty) {
+      summary = 'No doses scheduled today.';
+    } else {
+      summary = '$takenCount of ${doses.length} doses taken today.';
+    }
+
+    final allTaken =
+        !asNeeded && doses.isNotEmpty && takenCount == doses.length;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: allTaken ? const Color(0xFFE8F5E9) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                allTaken ? Icons.check_circle : Icons.schedule,
+                color: allTaken
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFFF57C00),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  summary,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          for (final dose in doses) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  display12(dose.time),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                DoseStatusChip(status: dose.status),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 

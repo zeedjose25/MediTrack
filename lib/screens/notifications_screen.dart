@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/sample_medications.dart';
+import '../data/dose_tracking.dart';
 import '../models/medication.dart';
 
 class NotificationsScreen extends StatelessWidget {
@@ -8,18 +8,10 @@ class NotificationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<Medication>>(
-      valueListenable: medicationNotifier,
-      builder: (context, medications, _) {
-        final sortedMedications = [...medications];
-
-        sortedMedications.sort(
-          (a, b) => _timeToMinutes(a.time).compareTo(_timeToMinutes(b.time)),
-        );
-
-        final taken = sortedMedications
-            .where((medication) => medication.taken)
-            .toList();
+    return TodayBuilder(
+      builder: (context, today) {
+        final doses = today.doses;
+        final recent = today.recentLogs;
 
         return Scaffold(
           appBar: AppBar(
@@ -45,18 +37,18 @@ class NotificationsScreen extends StatelessWidget {
               // --------------------------------------------------
               _buildSectionTitle(
                 'Today\'s Reminders',
-                'Your scheduled medications for today',
+                'Every scheduled dose for today',
               ),
 
               const SizedBox(height: 12),
 
-              if (sortedMedications.isEmpty)
+              if (doses.isEmpty)
                 _buildEmptyReminders()
               else
-                ...sortedMedications.map(
-                  (medication) => Padding(
+                ...doses.map(
+                  (dose) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildTodayReminder(medication),
+                    child: _buildTodayReminder(dose),
                   ),
                 ),
 
@@ -65,20 +57,17 @@ class NotificationsScreen extends StatelessWidget {
               // --------------------------------------------------
               // RECENT ACTIVITY
               // --------------------------------------------------
-              _buildSectionTitle(
-                'Recent Activity',
-                'Medication doses you have completed',
-              ),
+              _buildSectionTitle('Recent Activity', 'Your most recent doses'),
 
               const SizedBox(height: 12),
 
-              if (taken.isEmpty)
+              if (recent.isEmpty)
                 _buildNoActivity()
               else
-                ...taken.map(
-                  (medication) => Padding(
+                ...recent.map(
+                  (log) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildActivityItem(medication),
+                    child: _buildActivityItem(log, today.now),
                   ),
                 ),
 
@@ -179,8 +168,9 @@ class NotificationsScreen extends StatelessWidget {
   // TODAY'S REMINDER
   // ============================================================
 
-  Widget _buildTodayReminder(Medication medication) {
-    final bool taken = medication.taken;
+  Widget _buildTodayReminder(ScheduledDose dose) {
+    final medication = dose.medication;
+    final bool taken = dose.taken;
 
     return Container(
       padding: const EdgeInsets.all(17),
@@ -242,7 +232,7 @@ class NotificationsScreen extends StatelessWidget {
                     const SizedBox(width: 4),
 
                     Text(
-                      medication.time,
+                      display12(dose.time),
                       style: const TextStyle(
                         color: Color(0xFF1976D2),
                         fontWeight: FontWeight.w600,
@@ -257,23 +247,7 @@ class NotificationsScreen extends StatelessWidget {
 
           const SizedBox(width: 8),
 
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: taken ? const Color(0xFFE8F5E9) : const Color(0xFFFFF8E1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              taken ? 'Taken' : 'Pending',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: taken
-                    ? const Color(0xFF2E7D32)
-                    : const Color(0xFFF57C00),
-              ),
-            ),
-          ),
+          DoseStatusChip(status: dose.status),
         ],
       ),
     );
@@ -283,7 +257,7 @@ class NotificationsScreen extends StatelessWidget {
   // RECENT ACTIVITY
   // ============================================================
 
-  Widget _buildActivityItem(Medication medication) {
+  Widget _buildActivityItem(DoseLog log, DateTime now) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -305,14 +279,14 @@ class NotificationsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${medication.name} taken',
+                  '${log.medicationName} taken',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
 
                 const SizedBox(height: 3),
 
                 Text(
-                  '${medication.dosage} • ${medication.time}',
+                  '${log.dosage} • ${_whenText(log, now)}',
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
@@ -384,32 +358,39 @@ class NotificationsScreen extends StatelessWidget {
   }
 
   // ============================================================
-  // TIME SORTING
+  // WHEN A DOSE WAS TAKEN
   // ============================================================
 
-  int _timeToMinutes(String time) {
-    try {
-      final parts = time.trim().split(' ');
+  // "Today, 08:12 AM" / "Yesterday, 08:12 AM" / "Oct 3, 08:12 AM"
+  String _whenText(DoseLog log, DateTime now) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
 
-      final timePart = parts[0];
-      final period = parts.length > 1 ? parts[1].toUpperCase() : '';
+    final taken = log.takenAt;
+    final yesterday = now.subtract(const Duration(days: 1));
 
-      final hourMinute = timePart.split(':');
+    String day;
 
-      int hour = int.parse(hourMinute[0]);
-      final int minute = int.parse(hourMinute[1]);
-
-      if (period == 'PM' && hour != 12) {
-        hour += 12;
-      }
-
-      if (period == 'AM' && hour == 12) {
-        hour = 0;
-      }
-
-      return hour * 60 + minute;
-    } catch (_) {
-      return 0;
+    if (dayKey(taken) == dayKey(now)) {
+      day = 'Today';
+    } else if (dayKey(taken) == dayKey(yesterday)) {
+      day = 'Yesterday';
+    } else {
+      day = '${months[taken.month - 1]} ${taken.day}';
     }
+
+    return '$day, ${clock12(taken)}';
   }
 }

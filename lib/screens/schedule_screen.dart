@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/sample_medications.dart';
+import '../data/dose_tracking.dart';
 import '../models/medication.dart';
 
 import 'medication_details_screen.dart';
@@ -10,40 +10,46 @@ class ScheduleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    return TodayBuilder(
+      builder: (context, today) {
+        final now = today.now;
 
-    final weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
+        const weekdays = [
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday',
+        ];
 
-    final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
+        const months = [
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
+        ];
 
-    final dateText =
-        '${weekdays[now.weekday - 1]}, '
-        '${months[now.month - 1]} ${now.day}';
+        final dateText =
+            '${weekdays[now.weekday - 1]}, '
+            '${months[now.month - 1]} ${now.day}';
 
-    return ValueListenableBuilder<List<Medication>>(
-      valueListenable: medicationNotifier,
-      builder: (context, medications, _) {
+        final progressText = today.scheduledCount == 0
+            ? 'No scheduled doses today'
+            : '${today.takenCount} of ${today.scheduledCount} doses taken';
+
+        final isEmpty =
+            today.doses.isEmpty && today.asNeededMedications.isEmpty;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text(
@@ -68,23 +74,33 @@ class ScheduleScreen extends StatelessWidget {
                       size: 32,
                     ),
                     const SizedBox(width: 15),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Today',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          dateText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Today',
+                            style: TextStyle(color: Colors.white70),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            dateText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            progressText,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -103,12 +119,44 @@ class ScheduleScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              if (medications.isEmpty)
+              if (isEmpty)
                 _emptySchedule()
-              else
-                ...medications.map(
-                  (medication) => _scheduleItem(context, medication),
+              else ...[
+                if (today.doses.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      'No scheduled doses today.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ...today.doses.map((dose) => _doseItem(context, dose)),
+              ],
+
+              if (today.asNeededMedications.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'As Needed',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF172B4D),
+                  ),
                 ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Log a dose whenever you take one.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                ...today.asNeededMedications.map(
+                  (medication) => _asNeededItem(
+                    context,
+                    medication,
+                    today.asNeededLogsFor(medication.id),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -116,18 +164,25 @@ class ScheduleScreen extends StatelessWidget {
     );
   }
 
-  Widget _scheduleItem(BuildContext context, Medication medication) {
+  // ============================================================
+  // ONE SCHEDULED DOSE
+  // ============================================================
+
+  Widget _doseItem(BuildContext context, ScheduledDose dose) {
+    final medication = dose.medication;
+    final status = dose.status;
+
+    Color borderColor = const Color(0xFFE1E8F0);
+    if (status == DoseStatus.taken) borderColor = const Color(0xFFB7E4C7);
+    if (status == DoseStatus.missed) borderColor = const Color(0xFFF5C6C2);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: medication.taken
-              ? const Color(0xFFB7E4C7)
-              : const Color(0xFFE1E8F0),
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         children: [
@@ -179,7 +234,7 @@ class ScheduleScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    medication.time,
+                    display12(dose.time),
                     style: const TextStyle(
                       color: Color(0xFF1976D2),
                       fontWeight: FontWeight.bold,
@@ -196,26 +251,45 @@ class ScheduleScreen extends StatelessWidget {
 
           const SizedBox(height: 10),
 
+          if (!dose.taken && status == DoseStatus.upcoming) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Available at ${clock12(dose.scheduledAt.subtract(const Duration(minutes: dueBeforeMinutes)))}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  medication.taken ? 'Dose taken' : 'Dose not taken',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: medication.taken
-                        ? const Color(0xFF2E7D32)
-                        : const Color(0xFFF57C00),
+              DoseStatusChip(status: status),
+
+              if (dose.log != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'at ${clock12(dose.log!.takenAt)}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ),
-              ),
+              ] else
+                const Spacer(),
 
               FilledButton.icon(
-                onPressed: () {
-                  toggleMedicationTaken(medication.id);
-                },
-                icon: Icon(medication.taken ? Icons.undo : Icons.check),
-                label: Text(medication.taken ? 'Undo' : 'Mark as Taken'),
+                // Locked until 5 minutes before the dose. Undo and late doses stay enabled.
+                onPressed: (!dose.taken && status == DoseStatus.upcoming)
+                    ? null
+                    : () {
+                        if (dose.taken) {
+                          undoDose(dose);
+                        } else {
+                          markDoseTaken(medication, dose.time);
+                        }
+                      },
+                icon: Icon(dose.taken ? Icons.undo : Icons.check),
+                label: Text(dose.taken ? 'Undo' : 'Mark as Taken'),
               ),
             ],
           ),
@@ -225,20 +299,119 @@ class ScheduleScreen extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        MedicationDetailsScreen(medicationId: medication.id),
-                  ),
-                );
-              },
+              onPressed: () => _openDetails(context, medication),
               icon: const Icon(Icons.info_outline, size: 18),
               label: const Text('View Details'),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ONE "AS NEEDED" MEDICINE
+  // ============================================================
+
+  Widget _asNeededItem(
+    BuildContext context,
+    Medication medication,
+    List<DoseLog> logs,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE1E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF4FF),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.medication_rounded,
+                  color: Color(0xFF1976D2),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      medication.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF172B4D),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      logs.isEmpty
+                          ? '${medication.dosage} • none logged today'
+                          : '${medication.dosage} • ${logs.length} logged today',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          if (logs.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final log in logs.reversed)
+                  Chip(
+                    label: Text(clock12(log.takenAt)),
+                    onDeleted: () => deleteDoseLog(log.id),
+                  ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              FilledButton.icon(
+                onPressed: () => logAsNeededDose(medication),
+                icon: const Icon(Icons.add),
+                label: const Text('Log a dose'),
+              ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () => _openDetails(context, medication),
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text('Details'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openDetails(BuildContext context, Medication medication) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationDetailsScreen(medicationId: medication.id),
       ),
     );
   }

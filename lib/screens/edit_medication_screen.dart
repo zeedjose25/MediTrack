@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/sample_medications.dart';
 import '../models/medication.dart';
+import '../widgets/dose_times_field.dart';
 
 class EditMedicationScreen extends StatefulWidget {
   final String medicationId;
@@ -21,7 +22,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
 
   String frequency = 'Once a day';
   String instructions = 'Take with water';
-  String time = '08:00 AM';
+  List<String> times = ['08:00'];
 
   Medication? medication;
 
@@ -42,7 +43,10 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
 
       frequency = medication!.frequency;
       instructions = medication!.instructions;
-      time = medication!.time;
+
+      // Makes sure the number of times matches the frequency
+      // (older medicines only had one time saved).
+      times = timesForFrequency(frequency, medication!.times);
     }
   }
 
@@ -54,43 +58,11 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     super.dispose();
   }
 
-  Future<void> chooseTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _parseTime(time),
-    );
-
-    if (picked != null) {
-      setState(() {
-        time = picked.format(context);
-      });
-    }
-  }
-
-  TimeOfDay _parseTime(String value) {
-    try {
-      final parts = value.split(' ');
-      final hm = parts[0].split(':');
-
-      int hour = int.parse(hm[0]);
-      final minute = int.parse(hm[1]);
-
-      if (parts.length > 1) {
-        final period = parts[1].toUpperCase();
-
-        if (period == 'PM' && hour != 12) {
-          hour += 12;
-        }
-
-        if (period == 'AM' && hour == 12) {
-          hour = 0;
-        }
-      }
-
-      return TimeOfDay(hour: hour, minute: minute);
-    } catch (_) {
-      return const TimeOfDay(hour: 8, minute: 0);
-    }
+  void onFrequencyChanged(String value) {
+    setState(() {
+      frequency = value;
+      times = timesForFrequency(value, times);
+    });
   }
 
   void saveChanges() {
@@ -106,7 +78,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
       name: nameController.text.trim(),
       dosage: dosageController.text.trim(),
       frequency: frequency,
-      time: time,
+      times: times,
       instructions: instructions,
       notes: notesController.text.trim(),
     );
@@ -189,22 +161,19 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                   }).toList(),
               onChanged: (value) {
                 if (value != null) {
-                  setState(() {
-                    frequency = value;
-                  });
+                  onFrequencyChanged(value);
                 }
               },
             ),
             const SizedBox(height: 14),
-            InkWell(
-              onTap: chooseTime,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Medication time',
-                  prefixIcon: Icon(Icons.access_time),
-                ),
-                child: Text(time),
-              ),
+            DoseTimesField(
+              frequency: frequency,
+              times: times,
+              onChanged: (updated) {
+                setState(() {
+                  times = updated;
+                });
+              },
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(

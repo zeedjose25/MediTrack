@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/sample_medications.dart';
-import '../models/medication.dart';
+import '../data/dose_tracking.dart';
 import '../widgets/medication_card.dart';
 
 import 'add_medication_screen.dart';
@@ -13,12 +12,14 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<Medication>>(
-      valueListenable: medicationNotifier,
-      builder: (context, medications, _) {
-        final taken = medications.where((item) => item.taken).length;
+    return TodayBuilder(
+      builder: (context, today) {
+        final medications = today.medications;
 
-        final total = medications.length;
+        // Progress counts DOSES, not medicines.
+        final taken = today.takenCount;
+
+        final total = today.scheduledCount;
 
         return Scaffold(
           appBar: AppBar(
@@ -87,6 +88,7 @@ class HomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: MedicationCard(
                       medication: medication,
+                      status: today.statusFor(medication),
 
                       // Home can VIEW medication details,
                       // but cannot mark the medicine as taken.
@@ -253,7 +255,9 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 5),
 
                 Text(
-                  '$taken of $total medications taken',
+                  total == 0
+                      ? 'No scheduled doses today'
+                      : '$taken of $total doses taken today',
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],

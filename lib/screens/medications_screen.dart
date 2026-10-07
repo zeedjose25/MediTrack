@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/sample_medications.dart';
+import '../data/dose_tracking.dart';
 import '../widgets/medication_card.dart';
 
 import 'add_medication_screen.dart';
@@ -18,10 +18,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: medicationNotifier,
-      builder: (context, medications, _) {
-        final filtered = medications.where((medication) {
+    return TodayBuilder(
+      builder: (context, today) {
+        final filtered = today.medications.where((medication) {
           return medication.name.toLowerCase().contains(
             searchText.toLowerCase(),
           );
@@ -86,6 +85,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: MedicationCard(
                               medication: medication,
+                              status: today.statusFor(medication),
                               onTap: () {
                                 Navigator.push(
                                   context,
