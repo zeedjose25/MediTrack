@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/notification_service.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -11,8 +12,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool remindersEnabled = true;
-
   late String name;
   late String email;
 
@@ -235,19 +234,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 10),
           Card(
-            child: SwitchListTile(
-              value: remindersEnabled,
-              onChanged: (value) {
-                setState(() {
-                  remindersEnabled = value;
-                });
+            child: ValueListenableBuilder<bool>(
+              valueListenable: remindersEnabledNotifier,
+              builder: (context, enabled, _) {
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      value: enabled,
+                      onChanged: (value) => setRemindersEnabled(value),
+                      secondary: const Icon(
+                        Icons.notifications_active_outlined,
+                        color: Color(0xFF1976D2),
+                      ),
+                      title: const Text('Medication Reminders'),
+                      subtitle: const Text(
+                        'Enable medication reminder notifications',
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.notifications_outlined,
+                        color: Color(0xFF1976D2),
+                      ),
+                      title: const Text('Send test notification'),
+                      onTap: showTestNotification,
+                    ),
+                  ],
+                );
               },
-              secondary: const Icon(
-                Icons.notifications_active_outlined,
-                color: Color(0xFF1976D2),
-              ),
-              title: const Text('Medication Reminders'),
-              subtitle: const Text('Enable medication reminder notifications'),
             ),
           ),
           const SizedBox(height: 24),

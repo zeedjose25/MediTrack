@@ -20,6 +20,9 @@ const int missedAfterMinutes = 60;
 // How many days of dose history are loaded from Firestore.
 const int historyDays = 14;
 
+// How long after "Mark as Taken" a dose can still be undone.
+const int undoWindowMinutes = 3;
+
 // ============================================================
 // DOSE STATUS
 // ============================================================
@@ -107,6 +110,11 @@ String dayKey(DateTime date) {
 // DateTime -> "02:30 PM"
 String clock12(DateTime time) {
   return display12('${_two(time.hour)}:${_two(time.minute)}');
+}
+
+// True while a dose was taken recently enough to be undone.
+bool withinUndoWindow(DateTime takenAt, DateTime now) {
+  return now.difference(takenAt).inMinutes < undoWindowMinutes;
 }
 
 // Same medicine + same day + same time always gives the same id,
@@ -310,6 +318,11 @@ class ScheduledDose {
   });
 
   bool get taken => log != null;
+
+  bool canUndo(DateTime now) {
+    final takenAt = log?.takenAt;
+    return takenAt != null && withinUndoWindow(takenAt, now);
+  }
 
   String get id => doseId(medication.id, dayKey(scheduledAt), time);
 }

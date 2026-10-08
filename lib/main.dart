@@ -8,11 +8,16 @@ import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'data/dose_tracking.dart';
 
+import 'services/notification_service.dart';
+import 'services/connectivity_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   startMedicationSync();
   startDoseSync();
+  startConnectivityWatch();
+  await initNotifications(); // ADDED
 
   // Wait for Firebase to restore the saved login (if there is one).
   final user = await FirebaseAuth.instance.authStateChanges().first;

@@ -181,10 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // ------------------------------------------------
 
                   Container(
-                    width: 90,
-                    height: 90,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1976D2),
                       borderRadius: BorderRadius.circular(26),
                       boxShadow: [
                         BoxShadow(
@@ -194,10 +191,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.medication_rounded,
-                      color: Colors.white,
-                      size: 52,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(26),
+                      child: Image.asset(
+                        'assets/icon/icon.png',
+                        width: 90,
+                        height: 90,
+                      ),
                     ),
                   ),
 

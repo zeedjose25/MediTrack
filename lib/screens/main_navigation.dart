@@ -7,6 +7,7 @@ import 'notifications_screen.dart';
 import 'profile_screen.dart';
 
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/offline_banner.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -29,7 +30,14 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: currentIndex, children: pages),
+      body: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(index: currentIndex, children: pages),
+          ),
+          const OfflineBanner(),
+        ],
+      ),
       bottomNavigationBar: MediTrackBottomNavBar(
         currentIndex: currentIndex,
         onDestinationSelected: (index) {
