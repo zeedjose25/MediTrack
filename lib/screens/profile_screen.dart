@@ -251,15 +251,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Enable medication reminder notifications',
                       ),
                     ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.notifications_outlined,
-                        color: Color(0xFF1976D2),
-                      ),
-                      title: const Text('Send test notification'),
-                      onTap: showTestNotification,
-                    ),
                   ],
                 );
               },
